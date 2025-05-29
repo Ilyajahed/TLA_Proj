@@ -70,4 +70,4 @@ class GrammarReader:
 
 # for debugging:
 
-print(GrammarReader.load("Example/grammar.ll1"))
+# print(GrammarReader.load("Example/grammar.ll1"))

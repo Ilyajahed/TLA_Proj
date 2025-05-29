@@ -23,7 +23,7 @@ from grammar.grammar_reader import GrammarReader
 # we recursively compute the first for each nonterminal symbol.however as a basecase we have assigned the first of each terminal to itself:
 def first_computation(grammar):
     # making the dictionary:
-    first = {}
+    first = dict()
     for nonterm in grammar.nonterminals:   # for each nonterminal we set FIRST[nonterm] to an an empty set
         first[nonterm] = set()
 
@@ -31,26 +31,28 @@ def first_computation(grammar):
         first[t] = {t}
     first['eps'] = {'eps'}
 
-    # avoiding infinite recursions
+    # avoiding infinite recursions (with this part of code at lines 41-43: ********)
     visited = set()
 
     def first_of(symbol):
-        if symbol in grammar.terminals or symbol == 'eps':           # Terminal or ε: base case
+        if symbol in grammar.terminals or symbol == 'eps':           # if it is eps or terminal it will stop in this if clause.
             return {symbol}
 
-        if symbol in visited:        # avoiding cycles
+        if symbol in visited:        # avoiding cycles(********)
             return first[symbol]
         visited.add(symbol)
 
         # Foreach production A → alpha
-        for production in grammar.nonterminal_productions.get(symbol, []):
+        for production in grammar.nonterminal_productions.get(symbol, []):     #here we know that the symbol is nonterminal and we should lookfor its production rule.
             for rhs in production:
                 righthandside_first = first_of(rhs)
                 # Add everything except eps
                 first[symbol].update(righthandside_first - {'eps'})
-                # If rhs cannot produce eps, we stop here:
-                if 'eps' not in righthandside_first:
-                    break
+                
+                if 'eps' not in righthandside_first:   # If rhs cannot produce eps, we should break from the loop because we have found the first and then on the outer loop
+                    break                              # we will find the other first for the header symbol:
+                                                       # (if the righthandside has eps then we should not break and we should go to see the next product after it)
+                    
             else:
                 # If we never broke, all rhs can produce eps → so eps is in FIRST(A)
                 first[symbol].add('eps')
@@ -64,43 +66,71 @@ def first_computation(grammar):
 
     return first
 
+
+
 # debugging:
 grammar = GrammarReader.load("example/grammar.ll1")
-print(first_computation(grammar))
+# print(first_computation(grammar))
+
 
 
 def follow_computation(grammar, first):
-
-    follow = {}
-    for nonterminal in grammar.nonterminals:  # make an empty set for each nonterminal's follow
-        follow[nonterminal] = set()
-
-    follow[grammar.start_symbol].add('$')  # start symbol always has '$' in its follow
+    follow = dict()
+    for nonterm in grammar.nonterminals:
+        follow[nonterm] = set()
+    follow[grammar.start_symbol].add('$')  # rule: FOLLOW(start) = {$}
 
     changed = True
-    while changed:  # keep doing this until no more changes happen
+    while changed:
         changed = False
 
-        for head, productions in grammar.nonterminal_productions.items():
+        # 1. loop over all productions A → α
+        for headersymbol, productions in grammar.nonterminal_productions.items():
             for production in productions:
-                carry = follow[head].copy()  # what we carry over as we go backwards through the rule
-
-                for symbol in reversed(production):  # go through the rule from right to left
+                prod_len = len(production)
+                # 2. loop through each symbol in RHS
+                for i in range(prod_len):
+                    symbol = production[i]
                     if symbol in grammar.nonterminals:
-                        before = len(follow[symbol])
-                        follow[symbol].update(carry)  # pass down the carry to the symbol
-                        after = len(follow[symbol])
-                        if after > before:
-                            changed = True
+                        # check what's after symbol
+                        after = production[i + 1:]  # symbols after current
 
-                        if 'eps' in first[symbol]:  # if symbol can be empty, add its first (without eps) to carry
-                            carry.update(first[symbol] - {'eps'})
+                        if after:
+                            # 3. take FIRST of what's after
+                            first_of_after = set()
+                            for next_sym in after:     # use a new name
+                                first_of_after |= (first[next_sym] - {'eps'})      #time to add the first of the next symbol(in this step we ignore if it has eps or not.next line we will handle it.)
+                                if 'eps' in first[next_sym]:   # if the first of the next symbol contains eps then we got to see the next symbol in the 'after' part.
+
+                                                                #forexample see this:       E'-> [[+,T,E'], [eps]]   then we choose the T and then the after part is E' so we check First(E') and forexample it is {+,eps} then we will choose the + and then go to the next symbol in the first(E') if it contains eps then we ignore that subarray and go to the next      
+                                    continue
+                                else:      # if there is no eps then it will break and it won't see the else clause.
+                                    break
+                            else:
+                                # all after symbols had eps
+                                first_of_after.add('eps')
+
+                            # 4. add FIRST(after) minus eps to FOLLOW(symbol)
+                            before = len(follow[symbol])
+                            follow[symbol] |= (first_of_after - {'eps'})
+
+                            # 5. if FIRST(after) includes eps → add FOLLOW(header)
+                            if 'eps' in first_of_after:
+                                follow[symbol] |= follow[headersymbol]
+                            if len(follow[symbol]) > before:
+                                changed = True
                         else:
-                            carry = first[symbol].copy()  # otherwise, reset carry
-                    else:
-                        carry = {symbol}  # if it's a terminal, we just carry that terminal
-
+                            # 6. symbol is at the end → FOLLOW(A) added
+                            before = len(follow[symbol])
+                            follow[symbol] |= follow[headersymbol]
+                            if len(follow[symbol]) > before:
+                                changed = True
     return follow
+
+
+# x =first_computation(grammar)
+# print(follow_computation(grammar ,x ))
+
 
 
 

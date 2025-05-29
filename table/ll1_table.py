@@ -1,37 +1,52 @@
-def build_ll1_table(grammar, first, follow) -> dict:
-    table = {}                                   # this will hold the ll1 parse table as a dictionary
+import os
+import sys
+
+# Add project root to sys.path so imports work no matter where this is run from
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from grammar.grammar_reader import GrammarReader
+from first_follow.first_follow import first_computation, follow_computation
 
 
-    for A, productions in grammar.nonterminal_productions.items():
+def build_ll1_table(grammar, first, follow):
+    table = {}
+
+    for header, productions in grammar.nonterminal_productions.items():
         for production in productions:
-
-            
-            if production == ['eps']:   # if the production is eps, use follow set
-                for b in follow[A]:
-                    table[(A, b)] = production  # map (A, b) to the epsilon production
-
+            if production == ['eps']:
+                for terminal in follow[header]:
+                    table[(header, terminal)] = production
             else:
-                first_alpha = set()  # we stored the first set of the production
-
-                # loop through the symbols in the production
+                first_alpha = set()
                 for symbol in production:
-                    # add first of symbol excluding epsilon
                     first_alpha |= (first[symbol] - {'eps'})
-
-                    # if this symbol does not derive epsilon we will stop it
                     if 'eps' not in first[symbol]:
                         break
                 else:
-                    # if all symbols derive epsilon, add epsilon to first_alpha
                     first_alpha.add('eps')
 
-                # for each terminal in first_alpha (except epsilon), map it to the production
-                for a in first_alpha - {'eps'}:
-                    table[(A, a)] = production
+                for terminal in first_alpha - {'eps'}:
+                    table[(header, terminal)] = production
 
-                # if epsilon is in first_alpha, also add follow entries
                 if 'eps' in first_alpha:
-                    for b in follow[A]:
-                        table[(A, b)] = production
+                    for terminal in follow[header]:
+                        table[(header, terminal)] = production
 
-    return table  # return the completed ll1 table
+    return table
+
+
+
+
+grammar = GrammarReader.load("Example/grammar.ll1")
+
+first = first_computation(grammar)
+follow = follow_computation(grammar, first)
+table = build_ll1_table(grammar, first, follow)
+# print(follow)
+
+# print()
+# print()
+print(table)
+
+
+

@@ -1,83 +1,106 @@
 from grammar.grammar_reader import GrammarReader
-def compute_first(grammar):
+     
+"""
+         start_symbol = None             
+         nonterminals = set()            
+         terminals = set()                
+         nonterminal_productions = dict()  #dictionary with a key and value which is array of arrays.      
+         terminal_productions = dict()   #dictionary with a key and value which is array of arrays.    
+         
+         
+         
+         nonterminal_productions={'E': [['T', 'E_prime']], 'E_prime': [['PLUS', 'T', 'E_prime'], ['eps']],
+                                  'T': [['F', 'T_prime']], 'T_prime': [['STAR', 'F', 'T_prime'], ['eps']],
+                                  'F': [['LEFT_PAR', 'E', 'RIGHT_PAR'], ['IDENTIFIER'], ['LITERAL']]},
+
+
+         terminal_productions={'IDENTIFIER': '[a-zA-Z_][a-zA-Z0-9_]*', 'LITERAL': '\d+(\.\d+)?',
+                                'PLUS': '\\+', 'STAR': '\\*', 'LEFT_PAR': '\\(', 'RIGHT_PAR': '\\)' }
+
+"""
+
+
+# we recursively compute the first for each nonterminal symbol.however as a basecase we have assigned the first of each terminal to itself:
+def first_computation(grammar):
+    # making the dictionary:
     first = {}
-    for symbol in grammar.nonterminals:
-        first[symbol] = set()
-    for symbol in grammar.terminals:
-        first[symbol] = {symbol}
+    for nonterm in grammar.nonterminals:   # for each nonterminal we set FIRST[nonterm] to an an empty set
+        first[nonterm] = set()
 
-    for terminal in grammar.terminals:
-        first[terminal].add(terminal)
+    for t in grammar.terminals:                # every terminal is first of itself
+        first[t] = {t}
+    first['eps'] = {'eps'}
 
-    changed = True
-    while changed:
-        changed = False
+    # avoiding infinite recursions
+    visited = set()
 
-        for head in grammar.productions:
-            for production in grammar.productions[head]:
-                if production == ['eps']:
-                    if 'eps' not in first[head]:
-                        first[head].add('eps')
-                        changed = True
-                    continue
+    def first_of(symbol):
+        if symbol in grammar.terminals or symbol == 'eps':           # Terminal or ε: base case
+            return {symbol}
 
-                for symbol in production:
-                    before = len(first[head])
-                    first[head].update(first[symbol] - {'eps'})       
-                    after = len(first[head])
+        if symbol in visited:        # avoiding cycles
+            return first[symbol]
+        visited.add(symbol)
 
-                    if after > before:
-                        changed = True
+        # Foreach production A → alpha
+        for production in grammar.nonterminal_productions.get(symbol, []):
+            for rhs in production:
+                righthandside_first = first_of(rhs)
+                # Add everything except eps
+                first[symbol].update(righthandside_first - {'eps'})
+                # If rhs cannot produce eps, we stop here:
+                if 'eps' not in righthandside_first:
+                    break
+            else:
+                # If we never broke, all rhs can produce eps → so eps is in FIRST(A)
+                first[symbol].add('eps')
 
-                    if 'eps' not in first[symbol]:     
-                        break
-                else:
-                    if 'eps' not in first[head]:
-                        first[head].add('eps')
-                        changed = True
+        return first[symbol]
+
+    # start doing first method for each nonterminal
+    for nonterm in grammar.nonterminals:
+        visited.clear()
+        first_of(nonterm)
 
     return first
 
-# grammar = GrammarReader.load("examples/grammar.ll1")
-# print(compute_first(grammar))
+# debugging:
+grammar = GrammarReader.load("example/grammar.ll1")
+print(first_computation(grammar))
 
 
-
-
-def compute_follow(grammar, first):
+def follow_computation(grammar, first):
 
     follow = {}
-    for nonterminal in grammar.nonterminals:
+    for nonterminal in grammar.nonterminals:  # make an empty set for each nonterminal's follow
         follow[nonterminal] = set()
 
-    follow[grammar.start_symbol].add('$')
+    follow[grammar.start_symbol].add('$')  # start symbol always has '$' in its follow
 
     changed = True
-    while changed:
+    while changed:  # keep doing this until no more changes happen
         changed = False
 
-        for head, productions in grammar.productions.items():
+        for head, productions in grammar.nonterminal_productions.items():
             for production in productions:
-                trailer = follow[head].copy()
+                carry = follow[head].copy()  # what we carry over as we go backwards through the rule
 
-                for symbol in reversed(production):
+                for symbol in reversed(production):  # go through the rule from right to left
                     if symbol in grammar.nonterminals:
                         before = len(follow[symbol])
-                        follow[symbol].update(trailer)
+                        follow[symbol].update(carry)  # pass down the carry to the symbol
                         after = len(follow[symbol])
                         if after > before:
                             changed = True
 
-                        if 'eps' in first[symbol]:
-                            trailer.update(first[symbol] - {'eps'})
+                        if 'eps' in first[symbol]:  # if symbol can be empty, add its first (without eps) to carry
+                            carry.update(first[symbol] - {'eps'})
                         else:
-                            trailer = first[symbol].copy()
-
+                            carry = first[symbol].copy()  # otherwise, reset carry
                     else:
-                        trailer = {symbol}
+                        carry = {symbol}  # if it's a terminal, we just carry that terminal
 
     return follow
-
 
 
 

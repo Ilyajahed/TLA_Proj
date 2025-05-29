@@ -1,5 +1,5 @@
 from collections import deque
-from grammar.grammar_reader import Grammar,GrammarReader
+from grammar.grammar_reader import Grammar
 import networkx as nx
 import uuid
 from table import ll1_table
@@ -57,8 +57,8 @@ def create_token(input_filepath,grammer:Grammar) -> tuple:
     #check type of every input by looking at regex
     for item in inputs_data:
         check = True
-        for pattern in grammer.token_patterns.keys():
-            my_pattern = grammer.token_patterns[pattern]
+        for pattern in grammer.terminal_productions.keys():
+            my_pattern = grammer.terminal_productions[pattern]
             first = my_pattern[0]
             last = my_pattern[-1]
             #delete / from first and end of pattern if exist

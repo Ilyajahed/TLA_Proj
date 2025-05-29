@@ -1,7 +1,7 @@
 def build_ll1_table(grammar, first, follow) -> dict:
     table = {}
 
-    for A, productions in grammar.productions.items():
+    for A, productions in grammar.nonterminal_productions.items():
         for production in productions:
 
             if production == ['eps']:

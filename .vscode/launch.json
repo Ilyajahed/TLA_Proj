@@ -1,0 +1,16 @@
+// for debugging
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: first_follow",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "first_follow.first_follow",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    }
+  ]
+}
